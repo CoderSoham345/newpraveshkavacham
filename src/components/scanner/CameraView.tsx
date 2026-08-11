@@ -84,24 +84,48 @@ export const CameraView: React.FC<CameraViewProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Handle Capture click
+  // Yellow Corner Box percentage bounds (0-100)
+  const cornerBounds = {
+    x: 15, // 15% left
+    y: 15, // 15% top
+    w: 70, // 70% width
+    h: 70, // 70% height
+  };
+
+  // Handle Capture click - crops ONLY what is bounded inside the 4 yellow corners
   const handleCaptureClick = () => {
-    const canvas = document.createElement('canvas');
-    const width = 1280;
-    const height = 800;
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d')!;
+    // Full source canvas
+    const sourceCanvas = document.createElement('canvas');
+    const fullW = 1280;
+    const fullH = 800;
+    sourceCanvas.width = fullW;
+    sourceCanvas.height = fullH;
+    const sCtx = sourceCanvas.getContext('2d')!;
 
     if (videoRef.current && cameraStatus === 'ACTIVE') {
-      ctx.drawImage(videoRef.current, 0, 0, width, height);
+      sCtx.drawImage(videoRef.current, 0, 0, fullW, fullH);
     } else {
       // Create realistic Aadhaar card sample canvas when real video feed is restricted
-      drawSampleAadhaarCanvas(ctx, width, height);
+      drawSampleAadhaarCanvas(sCtx, fullW, fullH);
     }
 
+    // Calculate exact pixel crop bounds corresponding to the 4 yellow corners
+    const cropX = Math.round((cornerBounds.x / 100) * fullW);
+    const cropY = Math.round((cornerBounds.y / 100) * fullH);
+    const cropW = Math.round((cornerBounds.w / 100) * fullW);
+    const cropH = Math.round((cornerBounds.h / 100) * fullH);
+
+    // Create cropped canvas for ONLY what is present inside the 4 yellow corners
+    const croppedCanvas = document.createElement('canvas');
+    croppedCanvas.width = cropW;
+    croppedCanvas.height = cropH;
+    const cCtx = croppedCanvas.getContext('2d')!;
+
+    // Draw ONLY the yellow corners bounded region
+    cCtx.drawImage(sourceCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
     const corners = getDefaultQuadCorners();
-    onCapture(canvas, corners);
+    onCapture(croppedCanvas, corners);
   };
 
   return (
@@ -172,29 +196,39 @@ export const CameraView: React.FC<CameraViewProps> = ({
           </div>
         )}
 
-        {/* Real-time Document Detection Framing Box Overlay */}
-        <div className="absolute inset-4 sm:inset-8 pointer-events-none flex flex-col justify-between">
-          {/* Quad Corner Markers */}
-          <div className="flex justify-between">
-            <div className="w-8 h-8 border-t-4 border-l-4 border-emerald-400 rounded-tl-lg shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
-            <div className="w-8 h-8 border-t-4 border-r-4 border-emerald-400 rounded-tr-lg shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
-          </div>
-          <div className="flex justify-between">
-            <div className="w-8 h-8 border-b-4 border-l-4 border-emerald-400 rounded-bl-lg shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
-            <div className="w-8 h-8 border-b-4 border-r-4 border-emerald-400 rounded-br-lg shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+        {/* Real-time 4 Yellow Corners Framing Overlay */}
+        <div
+          className="absolute pointer-events-none transition-all duration-150 border-2 border-yellow-400/80 shadow-[0_0_20px_rgba(250,204,21,0.35)]"
+          style={{
+            left: `${cornerBounds.x}%`,
+            top: `${cornerBounds.y}%`,
+            width: `${cornerBounds.w}%`,
+            height: `${cornerBounds.h}%`,
+          }}
+        >
+          {/* Top-Left Yellow Corner */}
+          <div className="absolute -top-1 -left-1 w-8 h-8 sm:w-10 sm:h-10 border-t-4 border-l-4 border-yellow-400 rounded-tl-sm shadow-[0_0_12px_#facc15]" />
+
+          {/* Top-Right Yellow Corner */}
+          <div className="absolute -top-1 -right-1 w-8 h-8 sm:w-10 sm:h-10 border-t-4 border-r-4 border-yellow-400 rounded-tr-sm shadow-[0_0_12px_#facc15]" />
+
+          {/* Bottom-Left Yellow Corner */}
+          <div className="absolute -bottom-1 -left-1 w-8 h-8 sm:w-10 sm:h-10 border-b-4 border-l-4 border-yellow-400 rounded-bl-sm shadow-[0_0_12px_#facc15]" />
+
+          {/* Bottom-Right Yellow Corner */}
+          <div className="absolute -bottom-1 -right-1 w-8 h-8 sm:w-10 sm:h-10 border-b-4 border-r-4 border-yellow-400 rounded-br-sm shadow-[0_0_12px_#facc15]" />
+
+          {/* Center Crosshair Target */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-30">
+            <div className="w-6 h-0.5 bg-yellow-400" />
+            <div className="h-6 w-0.5 bg-yellow-400 absolute" />
           </div>
         </div>
 
-        {/* Status Indicator Pill */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-1.5 rounded-full flex items-center space-x-2 text-xs font-medium text-slate-200 shadow-xl">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              detectionStatus === 'Ready to capture'
-                ? 'bg-emerald-400 animate-ping'
-                : 'bg-amber-400'
-            }`}
-          />
-          <span>Status: <strong className="text-emerald-400">{detectionStatus}</strong></span>
+        {/* Floating Yellow Corner Capture Indicator */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur border border-yellow-400/60 px-4 py-1.5 rounded-full flex items-center space-x-2 text-xs font-bold text-yellow-300 shadow-xl">
+          <span className="w-2 h-2 rounded-full bg-yellow-400 animate-ping" />
+          <span>Captures ONLY content inside 4 Yellow Corners</span>
         </div>
       </div>
 

@@ -70,27 +70,60 @@ export const NewVisitorWizard: React.FC<NewVisitorWizardProps> = ({
     setStep('SCAN');
   };
 
-  // Step 2: Camera Capture
-  const handleCapture = (canvas: HTMLCanvasElement, corners: QuadCorners) => {
+  // Step 2: Camera Capture (Direct Document Scan with 4 Yellow Corners Crop + Direct OCR Extraction)
+  const handleCapture = async (canvas: HTMLCanvasElement, _corners: QuadCorners) => {
     setSourceCanvas(canvas);
-    setQuadCorners(corners);
-    setStep('EDIT');
+    setProcessedCanvas(canvas);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    setProcessedImageUrl(dataUrl);
+
+    // Direct transition to OCR review without barrier popups
+    setStep('OCR_REVIEW');
+    setIsLoadingOcr(true);
+
+    try {
+      const ocrRes = await processDocumentOcr(dataUrl, 'AADHAAR');
+      setExtractedData(ocrRes.extractedData);
+      if (ocrRes.extractedData.fullName) {
+        setVisitorName(ocrRes.extractedData.fullName);
+      }
+    } catch (err) {
+      console.error('OCR extraction error:', err);
+    } finally {
+      setIsLoadingOcr(false);
+    }
   };
 
-  const handleGallerySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGallerySelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const img = new Image();
-    img.onload = () => {
+    img.onload = async () => {
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(img, 0, 0);
       setSourceCanvas(canvas);
-      setQuadCorners(getDefaultQuadCorners());
-      setStep('EDIT');
+      setProcessedCanvas(canvas);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      setProcessedImageUrl(dataUrl);
+
+      setStep('OCR_REVIEW');
+      setIsLoadingOcr(true);
+
+      try {
+        const ocrRes = await processDocumentOcr(dataUrl, 'AADHAAR');
+        setExtractedData(ocrRes.extractedData);
+        if (ocrRes.extractedData.fullName) {
+          setVisitorName(ocrRes.extractedData.fullName);
+        }
+      } catch (err) {
+        console.error('Gallery image OCR error:', err);
+      } finally {
+        setIsLoadingOcr(false);
+      }
     };
     img.src = URL.createObjectURL(file);
   };
@@ -191,11 +224,11 @@ export const NewVisitorWizard: React.FC<NewVisitorWizardProps> = ({
         <div className="flex items-center space-x-2 sm:space-x-4">
           <span className={`font-semibold ${step === 'TYPE' ? 'text-indigo-400' : 'text-slate-500'}`}>1. Type</span>
           <span className="text-slate-700">/</span>
-          <span className={`font-semibold ${step === 'SCAN' || step === 'EDIT' ? 'text-indigo-400' : 'text-slate-500'}`}>2. Scan</span>
+          <span className={`font-semibold ${step === 'SCAN' ? 'text-indigo-400' : 'text-slate-500'}`}>2. Direct Scan</span>
           <span className="text-slate-700">/</span>
-          <span className={`font-semibold ${step === 'QUALITY' || step === 'OCR_REVIEW' ? 'text-indigo-400' : 'text-slate-500'}`}>3. Verify</span>
+          <span className={`font-semibold ${step === 'OCR_REVIEW' ? 'text-indigo-400' : 'text-slate-500'}`}>3. AI Extract</span>
           <span className="text-slate-700">/</span>
-          <span className={`font-semibold ${step === 'VISIT_DETAILS' || step === 'PENDING' ? 'text-indigo-400' : 'text-slate-500'}`}>4. Approve</span>
+          <span className={`font-semibold ${step === 'VISIT_DETAILS' || step === 'PENDING' ? 'text-indigo-400' : 'text-slate-500'}`}>4. Send Request</span>
         </div>
       </div>
 
