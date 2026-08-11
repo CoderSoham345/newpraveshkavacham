@@ -1,0 +1,6 @@
+{
+  "name": "PraveshKavach",
+  "description": "Smart Entry Approval & Visitor Management System with document scanning, auto OCR, host approvals, and gate logging.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
